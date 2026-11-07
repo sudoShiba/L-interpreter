@@ -3,7 +3,6 @@ module Parser where
 import Types
 import Numeric.Natural (Natural)
 import Data.Void (Void)
-import Data.Maybe (fromMaybe)
 import Control.Applicative (empty)
 import Text.Megaparsec hiding (Label)
 import Text.Megaparsec.Char
@@ -17,17 +16,21 @@ sc = L.space space1 empty empty
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
+parseIndex :: Parser Natural
+parseIndex = do
+  num <- optional L.decimal
+  case num of
+    Nothing -> return 1
+    Just 0  -> fail "Index must be at least 1"
+    Just n  -> return n
+
 parseVar :: Parser Variable
 parseVar = lexeme $ do
   firstChar <- upperChar
   case firstChar of
     'Y' -> return OutputVar
-    'X' -> do
-      num <- optional L.decimal
-      return $ InputVar (fromMaybe 1 num)
-    'Z' -> do
-      num <- optional L.decimal
-      return $ LocalVar (fromMaybe 1 num)
+    'X' -> InputVar <$> parseIndex
+    'Z' -> LocalVar <$> parseIndex
     _   -> fail "Invalid variable (expects Y, X or Z)"
 
 parseLabelLetter :: Parser LabelLetter
@@ -42,8 +45,7 @@ parseLabelLetter = choice
 parseLabel :: Parser Label
 parseLabel = lexeme $ do
   grp <- parseLabelLetter
-  num <- optional L.decimal
-  return (Label grp (fromMaybe 1 num))
+  Label grp <$> parseIndex
 
 parseStatement :: Parser Statement
 parseStatement = lexeme $ try parseIfGoto <|> parseAssignment
