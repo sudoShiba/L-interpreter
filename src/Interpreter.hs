@@ -1,6 +1,7 @@
 module Interpreter where
 
 import Types
+import Data.List (nub, sort)
 import Data.Maybe
 import Numeric.Natural (Natural, minusNaturalMaybe)
 
@@ -56,11 +57,23 @@ successor prog (i, sigma)
            then (i + 1, sigma) -- V = 0 -> increment pointer
            else (findLabelIndex targetLabel prog, sigma) -- V != 0 -> jump to targetLabel
 
-initSnapshot :: [Natural] -> Snapshot
-initSnapshot inputs =
-  let inputEqs = zipWith (\idx val -> InputVar idx := val) [1..] inputs
-      yEq      = [OutputVar := 0]
-  in (1, yEq ++ inputEqs)
+programVars :: Program -> [Variable]
+programVars = map (statementVar . statementOf)
+  where
+    statementOf (Unlabeled s) = s
+    statementOf (Labeled _ s) = s
+
+    statementVar (Inc v)    = v
+    statementVar (Dec v)    = v
+    statementVar (Noop v)   = v
+    statementVar (Goto v _) = v
+
+initSnapshot :: Program -> [Natural] -> Snapshot
+initSnapshot prog inputs =
+  let given = zipWith (\idx val -> (InputVar idx, val)) [1..] inputs
+      vars  = sort (nub (filter (/= OutputVar) (programVars prog) ++ map fst given))
+      eq v  = v := fromMaybe 0 (lookup v given)
+  in (1, map eq (OutputVar : vars))
 
 runTrace :: Natural -> Program -> Snapshot -> [Snapshot]
 runTrace 0 _ current = [current]

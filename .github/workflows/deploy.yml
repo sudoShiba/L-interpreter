@@ -1,0 +1,51 @@
+name: Build Webassembly & Deploy to Pages
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install GHC Wasm
+        run: |
+          curl -f -L https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta/-/raw/master/bootstrap.sh | FLAVOUR=9.14 sh
+
+      - name: Build Wasm binary
+        run: |
+          source ~/.ghc-wasm/env
+          wasm32-wasi-cabal update
+          wasm32-wasi-cabal build exe:l-wasm
+          mkdir -p public
+          cp $(wasm32-wasi-cabal list-bin exe:l-wasm) public/l_interpreter.wasm
+          cp index.html public/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

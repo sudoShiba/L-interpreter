@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>L-Interpreter Wasm</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 750px;
+        margin: 40px auto;
+        padding: 0 20px;
+        background: #0d1117;
+        color: #c9d1d9;
+      }
+      textarea {
+        width: 100%;
+        height: 190px;
+        background: #161b22;
+        color: #7ee787;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 10px;
+        font-family: monospace;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      .row {
+        margin: 12px 0;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      input {
+        background: #161b22;
+        color: #c9d1d9;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 6px 10px;
+        width: 70px;
+        font-family: monospace;
+      }
+      #inputs {
+        width: 120px;
+      }
+      button {
+        background: #238636;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      pre {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 14px;
+        font-family: monospace;
+        overflow-x: auto;
+      }
+      .hint {
+        margin: 0 0 12px;
+        font-size: 13px;
+        color: #8b949e;
+      }
+      .hint code {
+        color: #7ee787;
+        font-family: monospace;
+      }
+      .help {
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .help h3 {
+        margin: 20px 0 6px;
+      }
+      .help p {
+        margin: 6px 0;
+      }
+      .help ul,
+      .help ol {
+        margin: 6px 0;
+        padding-left: 20px;
+      }
+      .help code {
+        color: #7ee787;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>L-Language WebAssembly Runner</h2>
+    <textarea id="code">
+[A] IF X1 != 0 GOTO B
+    Z1 <- Z1 + 1
+    IF Z1 != 0 GOTO E
+[B] X1 <- X1 - 1
+    Y <- Y + 1
+    Y <- Y + 1
+    Z1 <- Z1 + 1
+    IF Z1 != 0 GOTO A</textarea>
+    <div class="row">
+      <label>Inputs (X1, X2, ...):</label>
+      <input type="text" id="inputs" value="3" />
+      <label>Max steps:</label>
+      <input type="number" id="steps" value="500" min="1" />
+      <button id="runBtn">Run Trace</button>
+    </div>
+    <p class="hint">
+      Separate inputs with commas: <code>3, 5</code> means
+      <code>X1 = 3</code> and <code>X2 = 5</code>.
+    </p>
+    <pre id="output">Loading Wasm...</pre>
+
+    <section class="help">
+      <h3>How to use it</h3>
+      <ol>
+        <li>Write your program in the text box.</li>
+        <li>
+          Enter the input values in <b>Inputs</b>, separated by commas. The
+          first value goes to <code>X1</code>, the second to <code>X2</code>,
+          and so on: <code>3, 5</code> starts the program with
+          <code>X1 = 3</code> and <code>X2 = 5</code>.
+        </li>
+        <li>
+          Click <b>Run Trace</b>. The last line of the trace shows the final
+          values, and <code>OutputVar</code> is the result.
+        </li>
+      </ol>
+      <p>
+        Inputs must be whole numbers of 0 or higher. Any variable without a
+        value starts at 0, so with <code>3</code> as input, <code>X2</code> is
+        0, and with an empty field, every variable is 0.
+      </p>
+      <p>
+        Inputs don't go in the program itself: <code>X1 &lt;- 20</code> is not
+        valid, because programs can only add or subtract 1.
+      </p>
+      <p>
+        The example computes <code>Y = 2 * X1</code>. It uses <code>Z1</code> to
+        make unconditional jumps, and jumps to the unused label <code>E</code>
+        to halt. It takes <code>6 * X1 + 3</code> steps, so raise Max steps for
+        inputs above 82.
+      </p>
+      <h3>Constraints</h3>
+      <ul>
+        <li>
+          <b>Statements:</b> only <code>V &lt;- V + 1</code>,
+          <code>V &lt;- V - 1</code>, <code>V &lt;- V</code> and
+          <code>IF V != 0 GOTO L</code>. Both sides of an assignment must use
+          the same variable.
+        </li>
+        <li>
+          <b>Variables:</b> all <code>X1</code>, <code>X2</code>, ... are input
+          variables, all <code>Z1</code>, <code>Z2</code>, ... are local
+          variables and <code>Y</code> is the output variable. <code>X</code>
+          means <code>X1</code> and <code>Z</code> means <code>Z1</code>.
+        </li>
+        <li>
+          <b>Labels:</b> <code>A</code> to <code>E</code>, optionally numbered,
+          written before a statement as <code>[A]</code> or <code>[B2]</code>.
+          <code>A</code> means <code>A1</code>.
+        </li>
+        <li>
+          <b>Values:</b> natural numbers only, so <code>V - 1</code> leaves 0 at
+          0.
+        </li>
+        <li>
+          <b>Halting:</b> the program stops after its last instruction or on a
+          <code>GOTO</code> to a label that doesn't exist.
+        </li>
+        <li>
+          <b>Limits:</b> the trace stops after <b>Max steps</b>, even if the
+          program hasn't finished. Max steps can be at most 2147483647.
+        </li>
+      </ul>
+      <p>
+        Each trace line shows the next instruction number and every variable
+        in the program or the inputs: <code>OutputVar</code> is <code>Y</code>,
+        <code>InputVar 1</code> is <code>X1</code> and
+        <code>LocalVar 1</code> is <code>Z1</code>.
+      </p>
+      <h3>Disclaimer</h3>
+      <p>
+        This is not the full L language as Davis defines it. There, variables
+        hold arbitrarily large natural numbers and a program can run forever.
+        This runner is finite: every run stops after Max steps, which is limited
+        to the 32-bit maximum of 2147483647, and all values have to fit in the
+        browser's memory. A trace that stops at Max steps
+        doesn't tell you whether the program would have halted.
+      </p>
+    </section>
+
+    <script type="module">
+      const MAX_INT = 2147483647;
+      let exports = null;
+
+      async function init() {
+        const res = await fetch("l_interpreter.wasm");
+        if (!res.ok) throw new Error("Could not fetch l_interpreter.wasm");
+
+        const buffer = await res.arrayBuffer();
+
+        const importObject = { wasi_snapshot_preview1: wasiImports() };
+
+        const { instance } = await WebAssembly.instantiate(
+          buffer,
+          importObject,
+        );
+        exports = instance.exports;
+
+        // Reactor modules must run libc/static constructors before any other export.
+        exports._initialize();
+        exports.hs_init(0, 0);
+
+        document.getElementById("output").textContent = "Ready.";
+      }
+
+      // Minimal WASI: no filesystem, stdout/stderr go to the console.
+      function wasiImports() {
+        const ESUCCESS = 0;
+        const EBADF = 8;
+        const ENOSYS = 52;
+        const ESPIPE = 70;
+        const FILETYPE_CHARACTER_DEVICE = 2;
+        const EVENT_SIZE = 32;
+        const SUBSCRIPTION_SIZE = 48;
+
+        // Fetched per call because memory.grow detaches the previous buffer.
+        const view = () => new DataView(exports.memory.buffer);
+        const isStdio = (fd) => fd >= 0 && fd <= 2;
+        const notSupported = () => ENOSYS;
+
+        return {
+          environ_sizes_get(countPtr, sizePtr) {
+            const v = view();
+            v.setUint32(countPtr, 0, true);
+            v.setUint32(sizePtr, 0, true);
+            return ESUCCESS;
+          },
+          environ_get: () => ESUCCESS,
+          clock_time_get(id, _precision, timePtr) {
+            const ms = id === 0 ? Date.now() : performance.now();
+            view().setBigUint64(timePtr, BigInt(Math.round(ms * 1e6)), true);
+            return ESUCCESS;
+          },
+          fd_close: (fd) => (isStdio(fd) ? ESUCCESS : EBADF),
+          fd_fdstat_get(fd, statPtr) {
+            if (!isStdio(fd)) return EBADF;
+            const v = view();
+            v.setUint8(statPtr, FILETYPE_CHARACTER_DEVICE);
+            v.setUint16(statPtr + 2, 0, true);
+            v.setBigUint64(statPtr + 8, 0xffffffffffffffffn, true);
+            v.setBigUint64(statPtr + 16, 0xffffffffffffffffn, true);
+            return ESUCCESS;
+          },
+          fd_fdstat_set_flags: (fd) => (isStdio(fd) ? ESUCCESS : EBADF),
+          fd_filestat_get(fd, statPtr) {
+            if (!isStdio(fd)) return EBADF;
+            new Uint8Array(exports.memory.buffer, statPtr, 64).fill(0);
+            view().setUint8(statPtr + 16, FILETYPE_CHARACTER_DEVICE);
+            return ESUCCESS;
+          },
+          fd_filestat_set_size: (fd) => (isStdio(fd) ? ESPIPE : EBADF),
+          // EBADF tells libc there are no preopened directories left to scan.
+          fd_prestat_get: () => EBADF,
+          fd_prestat_dir_name: () => EBADF,
+          fd_read(fd, _iovs, _iovsLen, nreadPtr) {
+            if (!isStdio(fd)) return EBADF;
+            view().setUint32(nreadPtr, 0, true);
+            return ESUCCESS;
+          },
+          fd_seek: (fd) => (isStdio(fd) ? ESPIPE : EBADF),
+          fd_write(fd, iovs, iovsLen, nwrittenPtr) {
+            if (!isStdio(fd)) return EBADF;
+            const v = view();
+            let text = "";
+            let written = 0;
+            for (let i = 0; i < iovsLen; i++) {
+              const ptr = v.getUint32(iovs + i * 8, true);
+              const len = v.getUint32(iovs + i * 8 + 4, true);
+              text += new TextDecoder().decode(
+                new Uint8Array(exports.memory.buffer, ptr, len),
+              );
+              written += len;
+            }
+            if (text) (fd === 2 ? console.error : console.log)(text);
+            v.setUint32(nwrittenPtr, written, true);
+            return ESUCCESS;
+          },
+          path_create_directory: notSupported,
+          path_filestat_get: notSupported,
+          path_open: notSupported,
+          // Reports every subscription as ready; the browser thread can't block.
+          poll_oneoff(inPtr, outPtr, nsubscriptions, neventsPtr) {
+            const v = view();
+            for (let i = 0; i < nsubscriptions; i++) {
+              const sub = inPtr + i * SUBSCRIPTION_SIZE;
+              const event = outPtr + i * EVENT_SIZE;
+              v.setBigUint64(event, v.getBigUint64(sub, true), true);
+              v.setUint16(event + 8, ESUCCESS, true);
+              v.setUint8(event + 10, v.getUint8(sub + 8));
+            }
+            v.setUint32(neventsPtr, nsubscriptions, true);
+            return ESUCCESS;
+          },
+          proc_exit(code) {
+            throw new Error("Wasm exited with code " + code);
+          },
+        };
+      }
+
+      function allocStr(str) {
+        const bytes = new TextEncoder().encode(str + "\0");
+        const ptr = exports.malloc(bytes.length);
+        new Uint8Array(exports.memory.buffer, ptr, bytes.length).set(bytes);
+        return ptr;
+      }
+
+      function readStr(ptr) {
+        const mem = new Uint8Array(exports.memory.buffer);
+        let end = ptr;
+        while (mem[end] !== 0) end++;
+        return new TextDecoder().decode(mem.subarray(ptr, end));
+      }
+
+      document.getElementById("runBtn").addEventListener("click", () => {
+        if (!exports) return;
+        const code = document.getElementById("code").value;
+        const inputs = document.getElementById("inputs").value;
+        const steps =
+          parseInt(document.getElementById("steps").value, 10) || 50;
+
+        // Haskell Int is 32-bit on wasm32; larger values would silently wrap.
+        if (steps > MAX_INT) {
+          document.getElementById("output").textContent =
+            "Error: Max steps must be at most " + MAX_INT + ".";
+          return;
+        }
+
+        const codePtr = allocStr(code);
+        const inputsPtr = allocStr(inputs);
+        const resPtr = exports.runTraceWasm(codePtr, steps, inputsPtr);
+        const out = readStr(resPtr);
+
+        exports.free(codePtr);
+        exports.free(inputsPtr);
+        exports.free(resPtr);
+        document.getElementById("output").textContent = out;
+      });
+
+      init().catch((e) => {
+        document.getElementById("output").textContent = "Error: " + e.message;
+      });
+    </script>
+  </body>
+</html>

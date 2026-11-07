@@ -1,2 +1,6 @@
 dist
 dist-*
+*.wasm
+
+.DS_Store
+
