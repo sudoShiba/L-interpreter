@@ -2,7 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>L-Interpreter Wasm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>L-Interpreter</title>
+    <meta
+      name="description"
+      content="Run programs in Martin Davis's L language in your browser and see the state after every step."
+    />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="canonical" href="https://l.robertozunica.dev/" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23161b22'/%3E%3Cpath d='M11 7v18h11' fill='none' stroke='%237ee787' stroke-width='4'/%3E%3C/svg%3E"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="L-Interpreter" />
+    <meta
+      property="og:description"
+      content="Run programs in Martin Davis's L language in your browser and see the state after every step."
+    />
+    <meta property="og:url" content="https://l.robertozunica.dev/" />
     <style>
       body {
         font-family: system-ui, sans-serif;
@@ -28,6 +46,7 @@
         margin: 12px 0;
         display: flex;
         gap: 12px;
+        flex-wrap: wrap;
         align-items: center;
       }
       input {
@@ -58,6 +77,15 @@
         padding: 14px;
         font-family: monospace;
         overflow-x: auto;
+      }
+      footer {
+        margin-top: 24px;
+        padding-top: 12px;
+        border-top: 1px solid #30363d;
+        font-size: 14px;
+      }
+      footer a {
+        color: #7ee787;
       }
       .hint {
         margin: 0 0 12px;
@@ -183,7 +211,7 @@
       </p>
       <h3>Disclaimer</h3>
       <p>
-        This is not the full L language as Davis defines it. There, variables
+        This is not the full L language as Martin Davis defines it. There, variables
         hold arbitrarily large natural numbers and a program can run forever.
         This runner is finite: every run stops after Max steps, which is limited
         to the 32-bit maximum of 2147483647, and all values have to fit in the
@@ -191,6 +219,10 @@
         doesn't tell you whether the program would have halted.
       </p>
     </section>
+
+    <footer>
+      <a href="https://github.com/sudoShiba/L-interpreter">Source on GitHub</a>
+    </footer>
 
     <script type="module">
       const MAX_INT = 2147483647;
