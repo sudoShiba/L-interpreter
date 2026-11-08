@@ -45,6 +45,25 @@ With input `3`, the trace starts and ends like this:
 
 Each line shows the next instruction number and every variable. `OutputVar` is `Y`, `InputVar 1` is `X1` and `LocalVar 1` is `Z1`.
 
+## Program numbers
+
+Following Davis, every program `P` has a number `#(P)`, and every number is the number of exactly one program. On the page, **Encode program** shows the number of the program in the text box, and **Decode number** puts the program with a given number in the text box.
+
+- Variables are numbered in the order `Y, X1, Z1, X2, Z2, ...` and labels in the order `A1, B1, C1, D1, E1, A2, ...`.
+- An instruction gets the number `<a, <b, c>>`, with `<x, y> = 2^x * (2y + 1) - 1`.
+- The program gets the number `[#(I1), ..., #(Ik)] - 1`: the product of the i-th prime to the power `#(Ii)`, minus 1.
+
+These numbers grow very fast. Labels and variables with high indexes can give numbers that are too big to compute in the browser, and decoding a number with a large prime factor can take a very long time. A program that ends with an unlabeled `Y <- Y` loses that last instruction, because its number is 0 and adds a factor of 1. Davis excludes such programs for the same reason.
+
+## Development
+
+To work on the Haskell code, use GHC and cabal from the project root:
+
+```sh
+cabal build
+cabal repl lib:l-interpreter
+```
+
 ## Differences from Davis's L
 
 In Davis's definition, variables hold arbitrarily large natural numbers and a program can run forever. This runner is finite: every run stops after a maximum number of steps, at most 2147483647, and all values have to fit in the browser's memory. A trace that stops at that maximum doesn't tell you whether the program would have halted.

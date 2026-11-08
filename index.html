@@ -61,6 +61,30 @@
       #inputs {
         width: 120px;
       }
+      #number {
+        width: 220px;
+      }
+      #numberOutput {
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+      .warn {
+        background: none;
+        color: #d29922;
+        padding: 0 4px;
+        font-size: 18px;
+        cursor: help;
+      }
+      #decodeWarning {
+        max-width: min(320px, calc(100vw - 32px));
+        padding: 12px 14px;
+        background: #161b22;
+        color: #c9d1d9;
+        border: 1px solid #d29922;
+        border-radius: 6px;
+        font-size: 14px;
+        line-height: 1.5;
+      }
       button {
         background: #238636;
         color: #fff;
@@ -140,6 +164,33 @@
       <code>X1 = 3</code> and <code>X2 = 5</code>.
     </p>
     <pre id="output">Loading Wasm...</pre>
+
+    <h3>Program number</h3>
+    <div class="row">
+      <button id="encodeBtn">Encode program</button>
+      <label>#(P):</label>
+      <input type="text" id="number" placeholder="e.g. 189" />
+      <button id="decodeBtn">Decode number</button>
+      <button
+        class="warn"
+        popovertarget="decodeWarning"
+        aria-label="Warning about decoding"
+      >
+        &#9888;
+      </button>
+    </div>
+    <div id="decodeWarning" popover>
+      Program numbers grow very fast. Decoding factors the number into
+      primes, so a number with a large prime factor can take a very long
+      time. Programs with high-numbered labels or variables can be too big to
+      encode or decode. The page freezes while it works.
+    </div>
+    <p class="hint">
+      <b>Encode program</b> computes the number #(P) of the program in the
+      text box. <b>Decode number</b> replaces the text box with the program
+      whose number is #(P).
+    </p>
+    <pre id="numberOutput">No number computed yet.</pre>
 
     <section class="help">
       <h3>How to use it</h3>
@@ -380,6 +431,39 @@
         exports.free(inputsPtr);
         exports.free(resPtr);
         document.getElementById("output").textContent = out;
+      });
+
+      // Calls a Wasm export that takes one string and returns one string.
+      function callStr(fn, arg) {
+        const argPtr = allocStr(arg);
+        const resPtr = fn(argPtr);
+        const out = readStr(resPtr);
+        exports.free(argPtr);
+        exports.free(resPtr);
+        return out;
+      }
+
+      const isError = (out) => /^[A-Z ]+ ERROR:/.test(out);
+
+      document.getElementById("encodeBtn").addEventListener("click", () => {
+        if (!exports) return;
+        const code = document.getElementById("code").value;
+        const out = callStr(exports.encodeProgramWasm, code);
+        document.getElementById("numberOutput").textContent = out;
+        if (!isError(out)) document.getElementById("number").value = out;
+      });
+
+      document.getElementById("decodeBtn").addEventListener("click", () => {
+        if (!exports) return;
+        const number = document.getElementById("number").value;
+        const out = callStr(exports.decodeProgramWasm, number);
+        if (isError(out)) {
+          document.getElementById("numberOutput").textContent = out;
+          return;
+        }
+        document.getElementById("code").value = out;
+        document.getElementById("numberOutput").textContent =
+          "Decoded #(P) = " + number.trim() + " into the text box.";
       });
 
       init().catch((e) => {
